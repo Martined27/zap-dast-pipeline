@@ -1,0 +1,47 @@
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:v17.1.1
+    container_name: zap-demo-juice-shop
+    ports:
+      - "3000:3000"
+    networks:
+      - dast-net
+
+  dvga:
+    image: dolevf/dvga:latest
+    container_name: zap-demo-dvga
+    ports:
+      - "5013:5013"
+    environment:
+      - WEB_HOST=0.0.0.0
+    profiles:
+      - graphql
+    networks:
+      - dast-net
+
+  zap-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zap-dast-pipeline:local
+    depends_on:
+      - juice-shop
+    env_file:
+      - path: .env.sample
+        required: true
+      - path: .env
+        required: false
+    environment:
+      - TARGET_URL=${TARGET_URL:-http://juice-shop:3000}
+      - PLAN_FILE=${PLAN_FILE:-plans/scan-juice-shop.yaml}
+      - REPORT_NAME=${REPORT_NAME:-zap-scan-report}
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
+    volumes:
+      - ./reports:/zap/wrk/reports
+      - ./plans:/zap/wrk/plans:ro
+    networks:
+      - dast-net
+
+networks:
+  dast-net:
+    driver: bridge

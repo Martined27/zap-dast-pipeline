@@ -1,0 +1,7 @@
+.DS_Store
+.env
+reports/*
+!reports/.gitkeep
+*.har
+cookies.txt
+*.tmp.yaml

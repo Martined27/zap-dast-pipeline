@@ -1,0 +1,63 @@
+name: Scheduled & On-Demand ZAP DAST Scan
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Weekly on Mondays at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target URL to scan (leave default to scan local OWASP Juice Shop service container)'
+        required: false
+        default: 'http://localhost:3000'
+      report_name:
+        description: 'Report filename prefix'
+        required: false
+        default: 'zap-dast-report'
+
+permissions:
+  contents: read
+
+jobs:
+  dast-scan:
+    runs-on: ubuntu-latest
+    services:
+      juice-shop:
+        image: bkimminich/juice-shop:v17.1.1
+        ports:
+          - 3000:3000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build ZAP DAST runner image
+        run: docker build -t zap-dast-pipeline:ci .
+
+      - name: Run ZAP Automation Framework Scan
+        env:
+          TARGET_URL: ${{ inputs.target_url || 'http://localhost:3000' }}
+          REPORT_NAME: ${{ inputs.report_name || 'zap-dast-report' }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/reports"
+          chmod 777 "${GITHUB_WORKSPACE}/reports"
+          docker run --rm --network host \
+            -e TARGET_URL="${TARGET_URL}" \
+            -e AUTH_LOGIN_URL="${TARGET_URL}/rest/user/login" \
+            -e AUTH_REGISTER_URL="${TARGET_URL}/api/Users" \
+            -e AUTH_EMAIL="zap-scanner@example.com" \
+            -e AUTH_PASSWORD="ZapScanner!2026" \
+            -e SPIDER_MAX_DURATION_MINS="1" \
+            -e AJAX_SPIDER_MAX_DURATION_MINS="1" \
+            -e REPORT_NAME="${REPORT_NAME}" \
+            -v "${GITHUB_WORKSPACE}/reports:/zap/wrk/reports" \
+            zap-dast-pipeline:ci
+
+      - name: Upload DAST HTML & JSON Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.report_name || 'zap-dast-report' }}
+          path: |
+            reports/*.html
+            reports/*.json
+          retention-days: 30

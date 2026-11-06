@@ -1,0 +1,5 @@
+# Seeded GraphQL operations for targets with introspection disabled
+POST /graphql {"query":"query { pastes { id title content public } }"}
+POST /graphql {"query":"query { paste(id: 1) { id title content owner { name } } }"}
+POST /graphql {"query":"query { systemHealth }"}
+POST /graphql {"query":"mutation { createPaste(title: \"test\", content: \"hello\", public: true) { paste { id title } } }"}

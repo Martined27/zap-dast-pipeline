@@ -1,0 +1,40 @@
+name: Container Image Build & Trivy Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-image-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build ZAP DAST runner image
+        run: docker build -t zap-dast-pipeline:ci .
+
+      - name: Run Trivy Vulnerability Scanner (Report HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'zap-dast-pipeline:ci'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'HIGH'
+
+      - name: Run Trivy Vulnerability Gate (Fail on Unfixed App CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'zap-dast-pipeline:ci'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'library'
+          severity: 'CRITICAL'

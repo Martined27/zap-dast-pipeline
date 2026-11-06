@@ -1,0 +1,98 @@
+---
+env:
+  contexts:
+    - name: "target-app"
+      urls:
+        - "${TARGET_URL}"
+      includePaths:
+        - "${TARGET_URL}.*"
+      excludePaths:
+        - "${TARGET_URL}/rest/user/logout.*"
+        - "${TARGET_URL}/assets/.*\\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|ico)$"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: replacer
+    parameters:
+      deleteAllRules: true
+    rules:
+      - description: "Inject Authenticated Bearer Token Header"
+        url: "${TARGET_URL}.*"
+        matchType: "req_header"
+        matchString: "${AUTH_HEADER_NAME}"
+        matchRegex: false
+        replacementString: "${ZAP_AUTH_HEADER_VALUE}"
+        initiators: []
+
+  - type: requestor
+    parameters:
+      user: ""
+    requests:
+      - url: "${TARGET_URL}/"
+        method: "GET"
+      - url: "${TARGET_URL}/rest/user/whoami"
+        method: "GET"
+      - url: "${TARGET_URL}/rest/products/search?q=apple"
+        method: "GET"
+      - url: "${TARGET_URL}/api/Products"
+        method: "GET"
+      - url: "${TARGET_URL}/rest/basket/1"
+        method: "GET"
+      - url: "${TARGET_URL}/api/Feedbacks/"
+        method: "GET"
+
+  - type: spider
+    parameters:
+      context: "target-app"
+      url: "${TARGET_URL}"
+      maxDuration: ${SPIDER_MAX_DURATION_MINS}
+      maxDepth: 5
+      parseComments: true
+      parseGit: true
+
+  - type: spiderAjax
+    parameters:
+      context: "target-app"
+      url: "${TARGET_URL}"
+      maxDuration: ${AJAX_SPIDER_MAX_DURATION_MINS}
+      maxCrawlDepth: 4
+      numberOfBrowsers: 2
+      inScopeOnly: true
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 2
+
+  - type: activeScan
+    parameters:
+      context: "target-app"
+      policy: "Default Policy"
+      maxRuleDurationInMins: 1
+      maxScanDurationInMins: 5
+      threadPerHost: 4
+
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "${REPORT_DIR}"
+      reportFile: "${REPORT_NAME}.html"
+      reportTitle: "OWASP ZAP Automated DAST Report"
+      reportDescription: "Automated DAST scan executed via ZAP Automation Framework"
+
+  - type: report
+    parameters:
+      template: "traditional-json"
+      reportDir: "${REPORT_DIR}"
+      reportFile: "${REPORT_NAME}.json"
+      reportTitle: "OWASP ZAP Automated DAST JSON Report"
+
+  - type: exitStatus
+    parameters:
+      errorLevel: "High"
+      warnLevel: "Medium"
+      okExitValue: 0
+      warnExitValue: 0
+      errorExitValue: 0

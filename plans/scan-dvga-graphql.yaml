@@ -1,0 +1,57 @@
+---
+env:
+  contexts:
+    - name: "dvga-graphql"
+      urls:
+        - "${TARGET_URL}"
+      includePaths:
+        - "${TARGET_URL}.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: requestor
+    parameters:
+      user: ""
+    requests:
+      - url: "${TARGET_URL}/graphql"
+        method: "POST"
+        headers:
+          - "Content-Type:application/json"
+        data: '{"query":"query { pastes { id title content public } }"}'
+      - url: "${TARGET_URL}/graphql"
+        method: "POST"
+        headers:
+          - "Content-Type:application/json"
+        data: '{"query":"query { systemHealth }"}'
+      - url: "${TARGET_URL}/graphql"
+        method: "POST"
+        headers:
+          - "Content-Type:application/json"
+        data: '{"query":"mutation { createPaste(title: \"seed\", content: \"seed-body\", public: true) { paste { id title } } }"}'
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 1
+
+  - type: activeScan
+    parameters:
+      context: "dvga-graphql"
+      policy: "Default Policy"
+      maxRuleDurationInMins: 1
+      maxScanDurationInMins: 3
+
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "${REPORT_DIR}"
+      reportFile: "${REPORT_NAME}.html"
+      reportTitle: "OWASP ZAP GraphQL Seeded DAST Report"
+
+  - type: report
+    parameters:
+      template: "traditional-json"
+      reportDir: "${REPORT_DIR}"
+      reportFile: "${REPORT_NAME}.json"
